@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tic-Tac-Toe</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #1a1a2e;
+      color: #eaeaea;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      color: #e94560;
+    }
+
+    #status {
+      font-size: 1.3rem;
+      margin-bottom: 1.5rem;
+      min-height: 2rem;
+      color: #f0f0f0;
+    }
+
+    #status.win {
+      color: #4ecca3;
+      font-weight: bold;
+      font-size: 1.8rem;
+    }
+
+    #status.lose {
+      color: #e94560;
+      font-weight: bold;
+      font-size: 1.8rem;
+    }
+
+    #status.draw {
+      color: #f5a623;
+      font-weight: bold;
+      font-size: 1.8rem;
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(3, 110px);
+      grid-template-rows: repeat(3, 110px);
+      gap: 8px;
+    }
+
+    .cell {
+      width: 110px;
+      height: 110px;
+      background: #16213e;
+      border: 2px solid #0f3460;
+      border-radius: 10px;
+      font-size: 3rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s ease, transform 0.1s ease;
+      user-select: none;
+    }
+
+    .cell:hover:not(.taken) {
+      background: #0f3460;
+      transform: scale(1.05);
+    }
+
+    .cell.x {
+      color: #4ecca3;
+    }
+
+    .cell.o {
+      color: #e94560;
+    }
+
+    .cell.winning {
+      background: #0f3460;
+      border-color: #4ecca3;
+      box-shadow: 0 0 12px #4ecca3;
+    }
+
+    #restart {
+      margin-top: 1.8rem;
+      padding: 0.7rem 2rem;
+      font-size: 1rem;
+      background: #e94560;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      display: none;
+    }
+
+    #restart:hover {
+      background: #c73652;
+    }
+
+    #legend {
+      margin-top: 1.2rem;
+      font-size: 0.9rem;
+      color: #888;
+    }
+
+    #legend span {
+      margin: 0 0.5rem;
+    }
+
+    .x-legend { color: #4ecca3; }
+    .o-legend { color: #e94560; }
+  </style>
+</head>
+<body>
+  <h1>Tic-Tac-Toe</h1>
+  <div id="status">Your turn</div>
+  <div id="board">
+    <div class="cell" data-index="0"></div>
+    <div class="cell" data-index="1"></div>
+    <div class="cell" data-index="2"></div>
+    <div class="cell" data-index="3"></div>
+    <div class="cell" data-index="4"></div>
+    <div class="cell" data-index="5"></div>
+    <div class="cell" data-index="6"></div>
+    <div class="cell" data-index="7"></div>
+    <div class="cell" data-index="8"></div>
+  </div>
+  <button id="restart">Play Again</button>
+  <div id="legend">
+    <span class="x-legend">&#10006; = You</span>
+    <span class="o-legend">&#9711; = Computer</span>
+  </div>
+
+  <script>
+    const PLAYER = 'X';
+    const COMPUTER = 'O';
+    const WINNING_LINES = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
+      [0, 3, 6], [1, 4, 7], [2, 5, 8], // cols
+      [0, 4, 8], [2, 4, 6]             // diagonals
+    ];
+
+    let board = Array(9).fill(null);
+    let gameOver = false;
+
+    const cells = document.querySelectorAll('.cell');
+    const statusEl = document.getElementById('status');
+    const restartBtn = document.getElementById('restart');
+
+    cells.forEach(cell => {
+      cell.addEventListener('click', () => {
+        const idx = parseInt(cell.dataset.index, 10);
+        if (gameOver || board[idx] !== null) return;
+
+        makeMove(idx, PLAYER);
+
+        if (!gameOver) {
+          setTimeout(computerMove, 300);
+        }
+      });
+    });
+
+    restartBtn.addEventListener('click', resetGame);
+
+    function makeMove(index, player) {
+      board[index] = player;
+      const cell = cells[index];
+      cell.textContent = player === PLAYER ? '✕' : '○';
+      cell.classList.add(player.toLowerCase(), 'taken');
+
+      const result = checkResult();
+      if (result) {
+        handleGameOver(result);
+      }
+    }
+
+    function computerMove() {
+      const bestIndex = getBestMove();
+      if (bestIndex !== -1) {
+        makeMove(bestIndex, COMPUTER);
+      }
+    }
+
+    /**
+     * Computer AI: takes a winning move if available, blocks the player's
+     * winning move if needed, otherwise plays randomly. This gives the player
+     * a real chance to win.
+     * Returns the index of the chosen cell.
+     */
+    function getBestMove() {
+      const empty = board.map((v, i) => v === null ? i : -1).filter(i => i !== -1);
+      if (empty.length === 0) return -1;
+
+      // 1. Win if possible
+      for (const i of empty) {
+        board[i] = COMPUTER;
+        const wins = checkResultFor(board) === COMPUTER;
+        board[i] = null;
+        if (wins) return i;
+      }
+
+      // 2. Block the player's winning move
+      for (const i of empty) {
+        board[i] = PLAYER;
+        const playerWins = checkResultFor(board) === PLAYER;
+        board[i] = null;
+        if (playerWins) return i;
+      }
+
+      // 3. Pick a random empty cell
+      return empty[Math.floor(Math.random() * empty.length)];
+    }
+
+    function checkResultFor(boardState) {
+      for (const [a, b, c] of WINNING_LINES) {
+        if (boardState[a] && boardState[a] === boardState[b] && boardState[a] === boardState[c]) {
+          return boardState[a];
+        }
+      }
+      if (boardState.every(cell => cell !== null)) return 'draw';
+      return null;
+    }
+
+    function checkResult() {
+      for (const line of WINNING_LINES) {
+        const [a, b, c] = line;
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+          return { winner: board[a], line };
+        }
+      }
+      if (board.every(cell => cell !== null)) return { winner: 'draw', line: [] };
+      return null;
+    }
+
+    function handleGameOver(result) {
+      gameOver = true;
+
+      if (result.winner === PLAYER) {
+        statusEl.textContent = 'You Win';
+        statusEl.className = 'win';
+        highlightWinningCells(result.line);
+      } else if (result.winner === COMPUTER) {
+        statusEl.textContent = 'Computer Wins';
+        statusEl.className = 'lose';
+        highlightWinningCells(result.line);
+      } else {
+        statusEl.textContent = "It's a Draw!";
+        statusEl.className = 'draw';
+      }
+
+      restartBtn.style.display = 'inline-block';
+    }
+
+    function highlightWinningCells(line) {
+      line.forEach(idx => cells[idx].classList.add('winning'));
+    }
+
+    function resetGame() {
+      board = Array(9).fill(null);
+      gameOver = false;
+      statusEl.textContent = 'Your turn';
+      statusEl.className = '';
+      restartBtn.style.display = 'none';
+      cells.forEach(cell => {
+        cell.textContent = '';
+        cell.className = 'cell';
+      });
+    }
+  </script>
+</body>
+</html>
